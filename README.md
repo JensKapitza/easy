@@ -24,3 +24,13 @@ Protokoll und Kommunikation
  * Browserschnittstelle
  * IMAP, CalDAV, ...
  * ...
+
+
+backend
+=======
+hier sind die service zu finden 
+
+frontend
+========
+hier sind die vom Anwender nutzbaren 'Anwendungen'
+evtl. plugins oder auch nur Anwendungen, wie nach installation des backends mit diesem gearbeitet werden kann.
