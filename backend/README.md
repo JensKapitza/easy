@@ -79,4 +79,19 @@ Ablauf
  * Hier können nur Daten aus den eingeloggten peers kommen
 * Phase 4 ...
  * Anwendungs und Service ebene. (hier brauch ich mich um Netzwerk nicht mehr kümmern)
- 
+
+
+Die verschiedenen Phasen sind Zeitlich beschränkt.
+Eine Verbindung zwischen A und B wird nur während DATEN ausgetauscht werden gehalten.
+Bei Phase 0-2 sollte diese aber auch nicht all zu lang offen sein (da hier unsichere Verbindungen entstehen können)
+
+Zustände der Verbindung
+
+1: close
+2: open IDLE (max. 5 sec)
+3: transmitt / receive
+4: forced close (gegenseite hat Verbindung unterbrochen) 
+
+
+
+
