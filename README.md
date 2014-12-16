@@ -1,6 +1,17 @@
 easy
 ====
 
+Dezentraler Dienst zum Verwalten von und Abgleichen nicht Zeitkriticher Daten
+idr. können die Daten vorbearbeitet werden bevor diese Übertragen werden.
+
+Bereitgestellte Dienste im backend, müssen eigenständig sein, können aber evtl. 
+neu gewonnene Informationen publizieren die dann weiter verarbeitet werden können.
+
+Es gibt keine harte Abhängigkeit zwischen den Diensten, so dass die Dienste auf verschiedenen Computer
+unabhängig gestartet werden können. Durch nur (teilweise) Syncronisierung sollen diese aber dennoch ihre  Aufgabe
+immer auf dem selbem Datenbestand erledigen und ergebnisse untereinandere ggf. kommunizieren.
+
+
 Zertifikat
 ==========
 * PGP (Public Key und Private Key)
