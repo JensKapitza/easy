@@ -11,16 +11,17 @@ extern service
 easy services
 =============
 * Filestorage
-
+* Auth
 
 easy module
 ============
-* overlayfs export files to local harddisk
-* Webserver
-* SSH (Dateiannahme, ...)
-* Vcard, CardDAV
-* CalDAV
-
+* Webserver -> Browserfrontend, Webmail, Fileshare, ...
+* HTTP, FTP, SFTP, SMBFS, .. -> Dateiverwaltung (import/export [overlayfs export files to local harddisk])
+* Vcard, CardDAV -> Kontakte
+* CalDAV -> Kalender
+* Notizen
+* Aufgaben
+* VCS (Git, Mercurial, ...)
 
 easy protocol
 =============
