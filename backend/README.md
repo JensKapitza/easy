@@ -39,10 +39,11 @@ OIDs / 256Byte
 
 MODE / 1Byte
 ====
-* 0 -> login DATA=IP is signed, Cert is transfered
-* 1 -> PGP crypted DATA
-* 2 -> symetric crypted DATA (used to avoid runtime encryption)
-* 3 ... x -> blocked for later use
+* 0 -> error detected
+* 1 -> login DATA=IP is signed, Cert is transfered
+* 2 -> PGP crypted DATA
+* 3 -> symetric crypted DATA (used to avoid runtime encryption)
+* 4 ... x -> blocked for later use
 
 DATA / variable
 ====
