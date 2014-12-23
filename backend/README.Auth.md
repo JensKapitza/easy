@@ -24,7 +24,9 @@ Gruppe (spez. Ressource)
 * ...
 
 
-USER_RECHTE(A) = (A.ALLOWRECHTE +  (GRUPPEN(A).ALLOWRECHTE - GRUPPEN(A).DENYRECHTE) ) - A.DENYRECHTE
+USER_RECHTE(A) = (A.ALLOWRECHTE +  
+(GRUPPEN(A).ALLOWRECHTE - GRUPPEN(A).DENYRECHTE) 
+) - A.DENYRECHTE
 
 also ein User kann Rechte aus Gruppen bekommen die ihm nicht expl. verboten wurden.
 
