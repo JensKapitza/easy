@@ -88,12 +88,12 @@ Eine Verbindung zwischen A und B wird nur während DATEN ausgetauscht werden geh
 Bei Phase 0-2 sollte diese aber auch nicht all zu lang offen sein (da hier unsichere Verbindungen entstehen können)
 
 Zustände der Verbindung
-
+```
 1: close
 2: open IDLE (max. 5 sec)
 3: transmitt / receive
 4: forced close (gegenseite hat Verbindung unterbrochen) 
-
+```
 
 
 
