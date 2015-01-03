@@ -1,6 +1,6 @@
 package de.back2heaven.easy.net;
 
-public class LayerOne implements Runnable {
+public class LayerOne extends AbstractLayer {
 
 	private Connector connectionHandler;
 
@@ -13,16 +13,21 @@ public class LayerOne implements Runnable {
 		// we need to update lastAction and read/write date
 		// first we step of protocol
 
-		byte[] oid = connectionHandler.read(256);
-		if (!checkOID(oid)) {
-			connectionHandler.destroy();
-		}
-		byte mode = connectionHandler.read();
+		connectionHandler.read(256, oid -> {
+			System.out.println("oid");
+			if (!checkOID(oid)) {
+				connectionHandler.destroy();
+			}
 
-		if (!checkMode(mode)) {
-			connectionHandler.destroy();
-
-		}
+		}).read(1, mode -> {
+			System.out.println("opt:");
+			if (!checkMode(mode[0])) {
+				connectionHandler.destroy();
+			}
+		});
+		
+		
+		// now we can jump up the layers.
 
 	}
 
@@ -40,6 +45,7 @@ public class LayerOne implements Runnable {
 			// check TABLE SQL etc?
 			// all IDs should be there if they are permitted
 			// if not then destroy the connection
+			return true;
 		}
 
 		return false;

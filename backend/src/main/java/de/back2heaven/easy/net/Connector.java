@@ -7,8 +7,9 @@ import java.net.InetAddress;
 import java.net.Socket;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Consumer;
 
-public class Connector implements Runnable {
+public class Connector extends Thread {
 
 	private Exception error = new Exception();
 	private String ip;
@@ -23,6 +24,10 @@ public class Connector implements Runnable {
 	private InputStream in;
 	private OutputStream out;
 
+	public Connector(String ip) {
+		this.ip = ip;
+	}
+
 	public Connector(Socket client, AtomicInteger currentOpen) {
 		connection = client;
 		ip = null; // ensure no auto connect will work!
@@ -32,24 +37,31 @@ public class Connector implements Runnable {
 	@Override
 	public void run() {
 		runner = Thread.currentThread();
-		if (connection != null && ip == null) {
-			// start connection
-			try {
+		try {
+			if (connection == null && ip != null) {
+				// start connection if needed
 				connection = new Socket(InetAddress.getByName(ip), port);
+			}
+			if (connection != null) {
 				in = connection.getInputStream();
 				out = connection.getOutputStream();
-			} catch (IOException e) {
-				connection = null;
-				error.addSuppressed(e);
 			}
+		} catch (IOException e) {
+			connection = null;
+			error.addSuppressed(e);
 		}
-
 		long last = System.currentTimeMillis();
+		lastAction.set(last);
 		updateActionIfNotNull();
 
 		while (connection != null && (lastAction.get() + timeShift) > last) {
 			last = System.currentTimeMillis();
 			try {
+				// wakeup waiters
+				synchronized (this) {
+					notifyAll();
+				}
+
 				Thread.sleep(timeShift);
 			} catch (InterruptedException e) {
 				if (Thread.interrupted()) {
@@ -59,13 +71,14 @@ public class Connector implements Runnable {
 				}
 			}
 		}
-
 		// we are idle and will close now.
 
 		if (connection != null) {
 			try {
 				if (in != null) {
-					in.close();
+					synchronized (in) { // last read
+						in.close();
+					}
 				}
 			} catch (IOException e) {
 
@@ -73,7 +86,9 @@ public class Connector implements Runnable {
 			}
 			try {
 				if (out != null) {
-					out.close();
+					synchronized (out) { // write out last data
+						out.close();
+					}
 				}
 			} catch (IOException e) {
 
@@ -86,7 +101,7 @@ public class Connector implements Runnable {
 			}
 		}
 		connection = null; // now the connection is lost
-
+		runner = null;
 		in = null;
 		out = null;
 		// throw away this connection
@@ -97,7 +112,7 @@ public class Connector implements Runnable {
 
 	}
 
-	public byte[] read(int bytes) {
+	public Connector read(int bytes, Consumer<byte[]> consumer) {
 		updateActionIfNotNull();
 		byte[] data = new byte[bytes];
 		if (in != null) {
@@ -106,19 +121,13 @@ public class Connector implements Runnable {
 				synchronized (in) {
 					r = in.read(data);
 				}
-				if (r == -1) {
-					return new byte[0]; // indicate no data
-				}
-				if (r == bytes) {
-					return data;
-				}
-				if (r > bytes) {
-					throw new IOException("bad error occurs");
-				}
-				if (r < bytes) {
-					byte[] n = new byte[r];
-					System.arraycopy(data, 0, n, 0, r);
-					return n;
+				if (r != -1) {
+					if (r < bytes) {
+						byte[] n = new byte[r];
+						System.arraycopy(data, 0, n, 0, r);
+						data = n;
+					}
+					consumer.accept(data);
 				}
 
 			} catch (IOException e) {
@@ -128,8 +137,7 @@ public class Connector implements Runnable {
 				updateActionIfNotNull();
 			}
 		}
-
-		return null;
+		return this;
 	}
 
 	private void updateActionIfNotNull() {
@@ -138,11 +146,7 @@ public class Connector implements Runnable {
 		}
 	}
 
-	public void write(byte data) {
-		write(new byte[] { data });
-	}
-
-	public void write(byte[] data) {
+	public Connector write(byte[] data) {
 		if (out != null) {
 			updateActionIfNotNull();
 
@@ -156,19 +160,40 @@ public class Connector implements Runnable {
 			}
 			updateActionIfNotNull();
 		}
-	}
-
-	public byte read() {
-		byte[] d = read(1);
-		if (d != null && d.length == 1) {
-			return d[0];
-		}
-		return 0;
+		return this;
 	}
 
 	public void destroy() {
-		lastAction.set(0);
-		runner.interrupt();
+		if (runner != null) {
+			// nur wenn noch nicht tot
+			lastAction.set(0);
+			runner.interrupt();
+		}
 	}
 
+	public void shutdown() {
+		destroy();
+	}
+
+	public synchronized void connect() {
+		connect(1000);
+	}
+
+	public synchronized void connect(long timeout) {
+		start();
+		long waiting = 0;
+		long stand = 5000;
+		while (in == null && timeout > waiting) {
+			try {
+				wait(stand);
+				waiting += stand;
+			} catch (InterruptedException e) {
+				error.addSuppressed(e);
+				if (Thread.interrupted()) {
+					break;
+
+				}
+			}
+		}
+	}
 }
