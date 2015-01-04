@@ -1,6 +1,12 @@
 package de.back2heaven.easy.net.cert;
 
-public class Certificate {
+import java.io.IOException;
+
+import org.bouncycastle.openpgp.PGPException;
+import org.bouncycastle.openpgp.PGPPrivateKey;
+import org.bouncycastle.openpgp.PGPPublicKey;
+
+public class Certificate implements PGPCertificate  {
 	private PGPCertificate cert;
 	private String name;
 	private byte[] oid;
@@ -11,11 +17,11 @@ public class Certificate {
 		this.cert = cert;
 	}
 
-	public byte[] crypt(byte[] data) {
-		return cert.crypt(data);
+	public byte[] encrypt(byte[] data) {
+		return cert.encrypt(data);
 	}
 
-	public byte[] sign(byte[] data) {
+	public byte[] sign(byte[] data) throws IOException, PGPException {
 		return cert.sign(data);
 	}
 
@@ -23,7 +29,7 @@ public class Certificate {
 		return cert.decrypt(data);
 	}
 
-	public byte[] check(byte[] data) throws InvalidSignature {
+	public byte[] check(byte[] data) throws InvalidSignature, IOException, PGPException {
 		return cert.check(data);
 	}
 
@@ -44,6 +50,16 @@ public class Certificate {
 
 	public String getOIDasString() throws InvalidOID {
 		return OIDGenerator.OIDasHEX(oid);
+	}
+
+	@Override
+	public PGPPrivateKey getPrivateKey() {
+		return cert.getPrivateKey();
+	}
+
+	@Override
+	public PGPPublicKey getPublicKey() {
+		return cert.getPublicKey();
 	}
 
 }

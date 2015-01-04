@@ -1,31 +1,48 @@
 package de.back2heaven.easy.net.cert;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.math.BigInteger;
 import java.security.SecureRandom;
 import java.util.Date;
+import java.util.Iterator;
 
+import org.bouncycastle.bcpg.BCPGOutputStream;
 import org.bouncycastle.bcpg.HashAlgorithmTags;
 import org.bouncycastle.bcpg.SymmetricKeyAlgorithmTags;
 import org.bouncycastle.bcpg.sig.Features;
 import org.bouncycastle.bcpg.sig.KeyFlags;
 import org.bouncycastle.crypto.generators.RSAKeyPairGenerator;
 import org.bouncycastle.crypto.params.RSAKeyGenerationParameters;
+import org.bouncycastle.openpgp.PGPCompressedData;
+import org.bouncycastle.openpgp.PGPCompressedDataGenerator;
 import org.bouncycastle.openpgp.PGPEncryptedData;
 import org.bouncycastle.openpgp.PGPException;
 import org.bouncycastle.openpgp.PGPKeyPair;
 import org.bouncycastle.openpgp.PGPKeyRingGenerator;
+import org.bouncycastle.openpgp.PGPLiteralData;
+import org.bouncycastle.openpgp.PGPLiteralDataGenerator;
+import org.bouncycastle.openpgp.PGPOnePassSignature;
+import org.bouncycastle.openpgp.PGPOnePassSignatureList;
 import org.bouncycastle.openpgp.PGPPrivateKey;
 import org.bouncycastle.openpgp.PGPPublicKey;
 import org.bouncycastle.openpgp.PGPPublicKeyRing;
+import org.bouncycastle.openpgp.PGPSecretKey;
 import org.bouncycastle.openpgp.PGPSecretKeyRing;
 import org.bouncycastle.openpgp.PGPSignature;
+import org.bouncycastle.openpgp.PGPSignatureGenerator;
+import org.bouncycastle.openpgp.PGPSignatureList;
 import org.bouncycastle.openpgp.PGPSignatureSubpacketGenerator;
+import org.bouncycastle.openpgp.jcajce.JcaPGPObjectFactory;
 import org.bouncycastle.openpgp.operator.PBESecretKeyDecryptor;
 import org.bouncycastle.openpgp.operator.PBESecretKeyEncryptor;
 import org.bouncycastle.openpgp.operator.PGPDigestCalculator;
 import org.bouncycastle.openpgp.operator.bc.BcPBESecretKeyDecryptorBuilder;
 import org.bouncycastle.openpgp.operator.bc.BcPBESecretKeyEncryptorBuilder;
 import org.bouncycastle.openpgp.operator.bc.BcPGPContentSignerBuilder;
+import org.bouncycastle.openpgp.operator.bc.BcPGPContentVerifierBuilderProvider;
 import org.bouncycastle.openpgp.operator.bc.BcPGPDigestCalculatorProvider;
 import org.bouncycastle.openpgp.operator.bc.BcPGPKeyPair;
 
@@ -36,6 +53,8 @@ public class PGP implements PGPCertificate {
 	PGPPublicKeyRing pkr;
 	PGPSecretKeyRing skr;
 	PGPPrivateKey privk;
+	PGPPublicKey pubk;
+	PGPSecretKey seck;
 
 	public PGP(String idMail, char[] pass) throws PGPException {
 		// http://bouncycastle-pgp-cookbook.blogspot.de/
@@ -97,7 +116,6 @@ public class PGP implements PGPCertificate {
 				new BcPGPContentSignerBuilder(rsakp_sign.getPublicKey()
 						.getAlgorithm(), HashAlgorithmTags.SHA512), pske);
 
-		
 		// Then an encryption subkey.
 		PGPKeyPair rsakp_enc = new BcPGPKeyPair(PGPPublicKey.RSA_ENCRYPT,
 				kpg.generateKeyPair(), new Date());
@@ -113,7 +131,9 @@ public class PGP implements PGPCertificate {
 		PBESecretKeyDecryptor decryptor = new BcPBESecretKeyDecryptorBuilder(
 				new BcPGPDigestCalculatorProvider()).build(pass);
 
-		privk = skr.getSecretKey().extractPrivateKey(decryptor);
+		seck = skr.getSecretKey();
+		pubk = seck.getPublicKey();
+		privk = seck.extractPrivateKey(decryptor);
 
 		System.out.println(privk.getPrivateKeyDataPacket().getFormat());
 		System.out.println(privk.getPublicKeyPacket().getAlgorithm());
@@ -121,6 +141,8 @@ public class PGP implements PGPCertificate {
 
 	public static void main(String[] args) throws Exception {
 		PGP p = new PGP("jensX", "fdsgfd".toCharArray());
+		System.out.println(new String(p.check(p.sign("das ist ein Test"
+				.getBytes()))));
 	}
 
 	@Override
@@ -136,27 +158,83 @@ public class PGP implements PGPCertificate {
 	}
 
 	@Override
-	public byte[] crypt(byte[] data) {
+	public byte[] encrypt(byte[] data) {
 		// TODO Auto-generated method stub
 		return null;
 	}
 
 	@Override
-	public byte[] sign(byte[] data) {
-		// TODO Auto-generated method stub
-		return null;
+	public byte[] sign(byte[] data) throws IOException, PGPException {
+
+		ByteArrayOutputStream bos = new ByteArrayOutputStream(data.length);
+
+		PGPSignatureGenerator sGen = new PGPSignatureGenerator(
+				new BcPGPContentSignerBuilder(pubk.getAlgorithm(),
+						HashAlgorithmTags.SHA512));
+		sGen.init(PGPSignature.BINARY_DOCUMENT, privk);
+		Iterator<?> it = pubk.getUserIDs();
+		if (it.hasNext()) {
+			PGPSignatureSubpacketGenerator spGen = new PGPSignatureSubpacketGenerator();
+			spGen.setSignerUserID(false, (String) it.next());
+			sGen.setHashedSubpackets(spGen.generate());
+		}
+		PGPCompressedDataGenerator cGen = new PGPCompressedDataGenerator(
+				PGPCompressedData.ZLIB);
+		BCPGOutputStream bOut = new BCPGOutputStream(cGen.open(bos));
+		sGen.generateOnePassVersion(false).encode(bOut);
+
+		PGPLiteralDataGenerator lGen = new PGPLiteralDataGenerator();
+		OutputStream lOut = lGen.open(bOut, PGPLiteralData.BINARY,
+				"SIGNED-DATA", data.length, new Date());
+
+		for (byte ch : data) {
+			lOut.write(ch);
+			sGen.update((byte) ch);
+		}
+
+		lGen.close();
+		sGen.generate().encode(bOut);
+		cGen.close();
+
+		return bos.toByteArray();
 	}
 
 	@Override
 	public byte[] decrypt(byte[] data) {
-		// TODO Auto-generated method stub
 		return null;
+
 	}
 
 	@Override
-	public byte[] check(byte[] data) throws InvalidSignature {
-		// TODO Auto-generated method stub
-		return null;
+	public byte[] check(byte[] data) throws InvalidSignature, IOException,
+			PGPException {
+
+		JcaPGPObjectFactory pgpFact = new JcaPGPObjectFactory(data);
+		PGPCompressedData c1 = (PGPCompressedData) pgpFact.nextObject();
+		pgpFact = new JcaPGPObjectFactory(c1.getDataStream());
+		PGPOnePassSignatureList p1 = (PGPOnePassSignatureList) pgpFact
+				.nextObject();
+		PGPOnePassSignature ops = p1.get(0);
+		PGPLiteralData p2 = (PGPLiteralData) pgpFact.nextObject();
+		InputStream dIn = p2.getInputStream();
+		PGPPublicKey key = pkr.getPublicKey(ops.getKeyID());
+		ByteArrayOutputStream out = new ByteArrayOutputStream();
+
+		ops.init(new BcPGPContentVerifierBuilderProvider(), key);
+		int ch;
+		while ((ch = dIn.read()) >= 0) {
+			ops.update((byte) ch);
+			out.write(ch);
+		}
+		out.close();
+		PGPSignatureList p3 = (PGPSignatureList) pgpFact.nextObject();
+		if (ops.verify(p3.get(0))) {
+			// wenn alles ok ist kommen hier nur die richtigen DATEN raus
+			return out.toByteArray();
+		} else {
+			throw new InvalidSignature();
+		}
+
 	}
 
 }
