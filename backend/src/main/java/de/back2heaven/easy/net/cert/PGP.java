@@ -28,7 +28,6 @@ import org.bouncycastle.openpgp.PGPOnePassSignature;
 import org.bouncycastle.openpgp.PGPOnePassSignatureList;
 import org.bouncycastle.openpgp.PGPPrivateKey;
 import org.bouncycastle.openpgp.PGPPublicKey;
-import org.bouncycastle.openpgp.PGPPublicKeyRing;
 import org.bouncycastle.openpgp.PGPSecretKey;
 import org.bouncycastle.openpgp.PGPSecretKeyRing;
 import org.bouncycastle.openpgp.PGPSignature;
@@ -45,13 +44,12 @@ import org.bouncycastle.openpgp.operator.bc.BcPGPContentSignerBuilder;
 import org.bouncycastle.openpgp.operator.bc.BcPGPContentVerifierBuilderProvider;
 import org.bouncycastle.openpgp.operator.bc.BcPGPDigestCalculatorProvider;
 import org.bouncycastle.openpgp.operator.bc.BcPGPKeyPair;
+import org.bouncycastle.openpgp.operator.jcajce.JcaKeyFingerprintCalculator;
 
 public class PGP implements PGPCertificate {
 	private static final int KEY_SIZE = 4096;
 	private static final int KEY_ITERATION = 0xff;
 
-	PGPPublicKeyRing pkr;
-	PGPSecretKeyRing skr;
 	PGPPrivateKey privk;
 	PGPPublicKey pubk;
 	PGPSecretKey seck;
@@ -124,10 +122,10 @@ public class PGP implements PGPCertificate {
 		krgen.addSubKey(rsakp_enc, enchashgen.generate(), null);
 
 		// Generate public key ring, dump to file.
-		pkr = krgen.generatePublicKeyRing();
+		// PGPPublicKeyRing pkr = krgen.generatePublicKeyRing();
 
 		// Generate private key, dump to file.
-		skr = krgen.generateSecretKeyRing();
+		PGPSecretKeyRing skr = krgen.generateSecretKeyRing();
 		PBESecretKeyDecryptor decryptor = new BcPBESecretKeyDecryptorBuilder(
 				new BcPGPDigestCalculatorProvider()).build(pass);
 
@@ -139,6 +137,29 @@ public class PGP implements PGPCertificate {
 		System.out.println(privk.getPublicKeyPacket().getAlgorithm());
 	}
 
+	public PGP(byte[] decode, char[] pass) throws PGPException, IOException {
+		// know we need to decode the cert!
+
+		PBESecretKeyDecryptor decryptor = new BcPBESecretKeyDecryptorBuilder(
+				new BcPGPDigestCalculatorProvider()).build(pass);
+		PGPSecretKeyRing secretKeyRing = new PGPSecretKeyRing(decode,
+				new JcaKeyFingerprintCalculator());
+
+		seck = secretKeyRing.getSecretKey();
+		pubk = seck.getPublicKey();
+		privk = seck.extractPrivateKey(decryptor);
+	}
+
+	@Override
+	public byte[] getBytes(boolean withPrivateKey) throws IOException {
+		// store to file!
+		if (withPrivateKey) {
+			return seck.getEncoded();
+		}
+		return pubk.getEncoded();
+
+	}
+
 	public static void main(String[] args) throws Exception {
 		PGP p = new PGP("jensX", "fdsgfd".toCharArray());
 		System.out.println(new String(p.check(p.sign("das ist ein Test"
@@ -147,14 +168,12 @@ public class PGP implements PGPCertificate {
 
 	@Override
 	public PGPPrivateKey getPrivateKey() {
-		// TODO Auto-generated method stub
-		return null;
+		return privk;
 	}
 
 	@Override
 	public PGPPublicKey getPublicKey() {
-		// TODO Auto-generated method stub
-		return null;
+		return pubk;
 	}
 
 	@Override
@@ -217,10 +236,9 @@ public class PGP implements PGPCertificate {
 		PGPOnePassSignature ops = p1.get(0);
 		PGPLiteralData p2 = (PGPLiteralData) pgpFact.nextObject();
 		InputStream dIn = p2.getInputStream();
-		PGPPublicKey key = pkr.getPublicKey(ops.getKeyID());
 		ByteArrayOutputStream out = new ByteArrayOutputStream();
 
-		ops.init(new BcPGPContentVerifierBuilderProvider(), key);
+		ops.init(new BcPGPContentVerifierBuilderProvider(), pubk);
 		int ch;
 		while ((ch = dIn.read()) >= 0) {
 			ops.update((byte) ch);

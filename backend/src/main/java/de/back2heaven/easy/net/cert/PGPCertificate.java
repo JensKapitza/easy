@@ -14,5 +14,6 @@ public interface PGPCertificate {
 	byte[] sign(byte[] data) throws IOException, PGPException;
 	byte[] decrypt(byte[] data);
 	byte[] check(byte[] data) throws InvalidSignature, IOException, PGPException;
+	byte[] getBytes(boolean withPrivateKey) throws IOException;
 	
 }

@@ -32,6 +32,10 @@ public class OIDGenerator {
 		byte[] uuid16 = asByteArray(UUID.randomUUID());
 		SecureRandom random = new SecureRandom(uuid16);
 		byte[] oid = new byte[OID_LENGTH];
+		// some random bytes
+		random.nextBytes(oid);
+		random.nextBytes(oid);
+		random.nextBytes(oid);
 		random.nextBytes(oid);
 		// overwrite bytes
 		System.arraycopy(timestamp8, 0, oid, 0, timestamp8.length);
@@ -53,5 +57,13 @@ public class OIDGenerator {
 			throw new InvalidOID();
 		}
 		return Hex.toHexString(oid);
+	}
+	
+	public static byte[] HEXasOID(final String hex) throws InvalidOID{
+		byte[] data = Hex.decode(hex);
+		if (data  == null || data.length != OID_LENGTH){
+			throw new InvalidOID();
+		}
+		return data;
 	}
 }
